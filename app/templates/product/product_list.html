@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}
+
+{{ title }}
+
+{% endblock title %}
+
+{% block content %}
+
+<div id="sidebar">
+    <h3>Категории</h3>
+    <ul>
+        <li {% if title == 'Все товары' %}class="selected"{% endif %}>
+            <a href="/api/v1/pages">All</a>
+        </li>
+        {% for category in categories %}
+        <li {% if title == category.name %}class="selected"{% endif %}>
+            <a href="{{ url_for('get_product_in_category_page', category_slug=category.slug) }}">{{ category.name }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div id="main" class="product-list">
+    <h1>{{ title }}</h1>
+    {% if title == "Все товары" %}
+        {% for product in products %}
+        <div class="item">
+            <a href="/api/v1/pages/{{ product.category.slug }}/{{ product.slug }}">
+                <img src="{{ url_for('static', path=product.image) }}">
+            </a>
+            <a href="/api/v1/pages/{{ product.category.slug }}/{{ product.slug }}">{{ product.name }}</a>
+            <br>
+            ${{ product.price }}
+        </div>
+        {% endfor %}
+    {% else %}
+        {% for product in category_by_slug_with_products %}
+        <div class="item">
+            <a href="{{ category_slug }}/{{ product.slug }}">
+                <img src="{{ url_for('static', path=product.image) }}">
+            </a>
+            <a href="{{ category_slug }}/{{ product.slug }}">{{ product.name }}</a>
+            <br>
+            ${{ product.price }}
+        </div>
+        {% endfor %}
+    {% endif %}
+</div>
+
+{% endblock content %}

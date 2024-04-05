@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %} {{ title }} {% endblock title %}
+
+{% block head %}
+
+<script>
+    async function addProduct(productId) {
+        const quantityValue = document.getElementById("quantity").value;
+        const url = `http://localhost:7777/api/v1/cart/add-to-cart/${productId}?quantity=${quantityValue}&override_quantity=false`;
+
+        await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        }).then(response => {
+            if (response.status === 201) {
+                window.location.href = "/api/v1/pages/cart"
+            }
+        });
+    }
+
+    async function uploadPhoto() {
+        try {
+            const fileInput = document.getElementById("image");
+            const file = fileInput.files[0];
+
+            const formData = new FormData();
+            formData.append("image", file);
+
+            const photoUrl = 'http://localhost:7777/api/v1/review/photo';
+            const photoResponse = await fetch(photoUrl, {
+                method: 'POST',
+                body: formData
+            });
+
+            const photoData = await photoResponse.json();
+            return photoData;
+        } catch (error) {
+            console.error('Error:', error);
+            return null;
+        }
+    }
+
+    async function uploadPhotoAndReview(product_id, parent_id = null) {
+        try {
+            const photoData = await uploadPhoto();
+
+            const yourNameInput = document.getElementById("your-name");
+            const yourTextInput = document.getElementById("your-text");
+
+            const parentValue = await replyToReview(parent_id);
+
+            const reviewData = {
+                product_id: product_id,
+                parent_id: parseInt(parentValue),
+                image_id: photoData.id,
+                name: yourNameInput.value,
+                text: yourTextInput.value
+            };
+
+            const reviewUrl = 'http://localhost:7777/api/v1/review';
+            const reviewResponse = await fetch(reviewUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(reviewData)
+            });
+
+            if (reviewResponse.ok) {
+                console.log('Review added successfully');
+                location.reload();
+            } else {
+                console.error('Failed to add review:', await reviewResponse.text());
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+    async function replyToReview(parentId) {
+        document.getElementById("your-name").focus();
+        if (parentId !== null) {
+            document.getElementById("parent-id").value = parentId;
+        }
+        return document.getElementById("parent-id").value;
+    }
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<div class="product-detail">
+    <img src="{% if product.image %}{{ url_for('static', path=product.image) }}{% endif %}">
+    <h1>{{ product.name }}</h1>
+    <h2>
+        <a href="/api/v1/pages/{{ category_slug }}">
+            {{ product.category.name }}
+        </a>
+    </h2>
+    <p class="price">${{ product.price }}</p>
+    <span>Количество</span>
+    <input type="number" id="quantity" min="1" value="1">
+    <button onclick="addProduct('{{ product.id }}')" type="submit">Добавить в корзину</button>
+    {{ product.description }}
+</div>
+
+<div class="form-review">
+    <div class="order-form order-form_reviews">
+        <h2>Добавить отзыв</h2>
+        <input type="hidden" id="parent-id">
+        <p>
+            <input type="file" id="image">
+        </p>
+        <p>
+            <label for="your-name">Your name:</label>
+            <input type="text" id="your-name">
+        </p>
+        <p>
+            <label for="your-text">Your text:</label>
+            <textarea placeholder="Ваш текст" id="your-text" cols="30" rows="10"></textarea>
+        </p>
+        <p><button onclick="uploadPhotoAndReview('{{ product.id }}')" type="submit">Add review</button></p>
+    </div>
+
+    {% if reviews %}
+    <div class="reviews">
+        {% for review in reviews %}
+        <div class="review">
+            <div class="global-review">
+                {% if review.image %}
+                <img src="{% if review.image_id %}{{ url_for('static', path=review.image.image) }}{% endif %}">
+                {% else %}
+                <img src="/static/review_images/no-photo.jpg">
+                {% endif %}
+                <p>{{ review.name }}</p>
+                <p>{{ review.text }}</p>
+                <p><button onclick="replyToReview('{{ review.id }}')">Ответить</button></p>
+            </div>
+
+            {% if review.replies %}
+            <div class="replies">
+                {% for reply in review.replies %}
+                <div class="reply">
+                    {% if reply.image %}
+                    <img src="{% if reply.image_id %}{{ url_for('static', path=reply.image.image) }}{% endif %}">
+                    {% else %}
+                    <img src="/static/review_images/no-photo.jpg">
+                    {% endif %}
+                    <p>{{ reply.name }}</p>
+                    <p>{{ reply.text }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+{% if recommended_products %}
+<div class="recommendations">
+    <h3>People who bought this also bought</h3>
+    {% for product in recommended_products %}
+    <div class="item">
+        <a href="/api/v1/pages/{{ product.category.slug }}/{{ product.slug }}">
+            <img src="{% if product.image %}{{ url_for('static', path=product.image) }}{% endif %}">
+        </a>
+        <p><a href="/api/v1/pages/{{ product.category.slug }}/{{ product.slug }}">{{ product.name }}</a></p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% endblock content %}

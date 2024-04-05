@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %} {{ title }} {% endblock title %}
+
+{% block head %}
+
+<script>
+    async function removeProduct(product_id) {
+        const url = `http://localhost:7777/api/v1/cart/delete_from_cart/${product_id}`;
+
+        await fetch(url, {
+            method: 'DELETE',
+        }).then(response => {
+            if (response.status === 204) {
+                location.reload()
+            }
+        });
+    }
+
+    async function updateProduct(productId) {
+        const updateQuantity = document.getElementById(`update_quantity_${productId}`).value;
+        const url = `http://localhost:7777/api/v1/cart/add-to-cart/${productId}?quantity=${updateQuantity}&override_quantity=true`;
+
+        await fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        }).then(response => {
+            if (response.status === 201) {
+                location.reload()
+            }
+        });
+    }
+
+    const addCoupon = () => {
+        const codeValue = document.getElementById("code").value;
+        window.location.href = `/api/v1/pages/cart/${codeValue}`;
+    }
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+<h1>Your shopping cart</h1>
+<table class="cart">
+    <thead>
+        <tr>
+            <th>Image</th>
+            <th>Product</th>
+            <th>Quantity</th>
+            <th>Remove</th>
+            <th>Unit price</th>
+            <th>Price</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in cart %}
+        {% with product=item.product %}
+        <tr>
+            <td>
+                <a href="/api/v1/pages/{{ product.category.slug }}">
+                    <img src="{% if product.image %}{{ url_for('static', path=product.image) }}{% endif %}">
+                </a>
+            </td>
+            <td>{{ product.name }}</td>
+            <td>
+                <input type="number" id="update_quantity_{{ product.id }}" value="{{ item.quantity }}">
+                <button onclick="updateProduct('{{ product.id }}')" type="submit">Обновить</button>
+            </td>
+            <td><button onclick="removeProduct('{{ product.id }}')" type="submit">Удалить товар</button></td>
+            <td class="num">${{ item.price }}</td>
+            <td class="num">${{ item.total_price }}</td>
+        </tr>
+        {% endwith %}
+        {% endfor %}
+
+        {% if coupon %}
+        <tr class="subtotal">
+             <td>Subtotal</td>
+             <td colspan="4"></td>
+             <td class="num">${{ get_total_price }}</td>
+        </tr>
+        <tr>
+            <td>
+                "{{ coupon.code }}" coupon
+                ({{ coupon.discount }}% off)
+            </td>
+            <td colspan="4"></td>
+            <td class="num neg">
+                – ${{ general_discount }}
+            </td>
+        </tr>
+        <tr class="total">
+            <td>Total</td>
+            <td colspan="4"></td>
+            <td class="num">${{ after_discount }}</td>
+        </tr>
+        {% else %}
+        <tr class="total">
+            <td>Total</td>
+            <td colspan="4"></td>
+            <td class="num">${{ get_total_price }}</td>
+        </tr>
+        {% endif %}
+    </tbody>
+</table>
+
+{% if recommended_products %}
+<div class="recommendations cart">
+    <h3>People who bought this also bought</h3>
+
+    {% for product in recommended_products %}
+    <div class="item">
+        <a href="/api/v1/pages/{{ product.category.slug }}/{{ product.slug }}">
+            <img src="{% if product.image %}{{ url_for('static', path=product.image) }}{% endif %}">
+        </a>
+        <p><a href="/api/v1/pages/{{ product.category.slug }}/{{ product.slug }}">{{ product.name }}</a></p>
+    </div>
+    {% endfor %}
+
+</div>
+{% endif %}
+
+<p>Apply a coupon:</p>
+<input type="text" id="code">
+<button onclick="addCoupon()" type="submit">Apply</button>
+
+<p class="text-right">
+    <a href="/api/v1/pages" class="buttonlight">
+        Continue shopping
+    </a>
+    {% if coupon %}
+    <a href="/api/v1/pages/order-create/{{ coupon.code }}" class="button">Checkout</a>
+    {% else %}
+    <a href="/api/v1/pages/order-create" class="button">Checkout</a>
+    {% endif %}
+</p>
+
+{% endblock content %}
